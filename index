@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>和国物品管理システム WAI!</title>
+    <style>
+        :root {
+            --primary-color: #0066cc;
+            --accent-color: #f97316;
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-color: #334155;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        header {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin: 0 0 10px 0;
+        }
+
+        .badge {
+            background-color: var(--accent-color);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            display: inline-block;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.05);
+        }
+
+        h2 {
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 8px;
+            color: var(--primary-color);
+            margin-top: 0;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #0052a3;
+        }
+
+        button.accent {
+            background-color: var(--accent-color);
+        }
+
+        button.accent:hover {
+            background-color: #ea580c;
+        }
+
+        .log-list, .item-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .log-item, .item-row {
+            background-color: #f8fafc;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .log-item.group-log {
+            border-left-color: var(--accent-color);
+        }
+
+        .sync-banner {
+            background-color: #e0f2fe;
+            color: #0369a1;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>和国物品管理システム WAI!</h1>
+        <div class="badge">貸出・返却 リアルタイム同期システム</div>
+    </header>
+
+    <div class="sync-banner">
+        🔄 他の端末やタブでの設定・貸出変更は自動でこの画面に同期されます。
+    </div>
+
+    <div class="container">
+        <!-- 貸出・返却申請フォーム -->
+        <div class="card">
+            <h2>📝 物品申請（貸出・返却）</h2>
+            <form id="loanForm">
+                <div class="form-group">
+                    <label for="groupType">団体区分</label>
+                    <select id="groupType" onchange="updateGroupOptions()">
+                        <option value="クラス">クラス</option>
+                        <option value="部活">部活</option>
+                        <option value="委員会">委員会</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="groupName">団体名</label>
+                    <select id="groupName">
+                        <!-- JSで動的に生成 -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="itemName">物品名</label>
+                    <select id="itemName">
+                        <!-- JSで動的に生成 -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="itemCount">数量</label>
+                    <input type="number" id="itemCount" min="1" value="1">
+                </div>
+                <button type="button" onclick="processLoan('貸出')">📥 貸出を確定する</button>
+                <button type="button" onclick="processLoan('返却')" class="accent" style="margin-top: 8px;">📤 返却を確定する</button>
+            </form>
+        </div>
+
+        <!-- 未返却ログ（ご要望の団体別表示） -->
+        <div class="card">
+            <h2>📋 団体別 未返却ログ</h2>
+            <ul id="unreturnedLog" class="log-list">
+                <!-- 「吹奏楽部: 絵の具 5個」形式で集計されて表示 -->
+            </ul>
+        </div>
+
+        <!-- 管理者設定：制限の追加・変更 -->
+        <div class="card">
+            <h2>⚙️ マスター管理（制限・団体の追加）</h2>
+            <div class="form-group">
+                <h3>▼ 物品の登録と個数制限設定</h3>
+                <label for="newIdName">物品名</label>
+                <input type="text" id="newIdName" placeholder="例: 絵の具">
+                <label for="newIdLimit" style="margin-top: 5px;">最大貸出可能個数</label>
+                <input type="number" id="newIdLimit" min="1" placeholder="例: 10">
+                <button type="button" onclick="addOrUpdateItem()" style="margin-top: 10px;">💾 物品・制限を登録/更新</button>
+            </div>
+            
+            <hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 20px 0;">
+
+            <div class="form-group">
+                <h3>▼ 部活・委員会の新規追加</h3>
+                <label for="newGroupType">追加先区分</label>
+                <select id="newGroupType">
+                    <option value="部活">部活</option>
+                    <option value="委員会">委員会</option>
+                </select>
+                <label for="newGroupName" style="margin-top: 5px;">団体名</label>
+                <input type="text" id="newGroupName" placeholder="例: 吹奏楽部">
+                <button type="button" onclick="addNewGroup()" style="margin-top: 10px;">➕ 団体を追加</button>
+            </div>
+        </div>
+
+        <!-- 現在の登録物品一覧 -->
+        <div class="card">
+            <h2>📊 登録物品・制限上限一覧</h2>
+            <ul id="masterItemList" class="item-list">
+                <!-- JSで動的に生成 -->
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // --- 初期データ構造 ---
+        const defaultItems = {
+            "絵の具": 10,
+            "プロジェクター": 3,
+            "延長コード": 15,
+            "パイプ椅子": 50
+        };
+
+        const defaultGroups = {
+            "クラス": ["1年1組", "1年2組", "2年1組", "2年2組", "3年1組", "3年2組"],
+            "部活": ["吹奏楽部", "美術部", "剣道部", "サッカー部"],
+            "委員会": ["文化祭実行委員会", "生徒会", "保健委員会"]
+        };
+
+        // --- ローカルストレージ（他端末同期対応）の初期化 ---
+        if (!localStorage.getItem("wai_items")) localStorage.setItem("wai_items", JSON.stringify(defaultItems));
+        if (!localStorage.getItem("wai_groups")) localStorage.setItem("wai_groups", JSON.stringify(defaultGroups));
+        if (!localStorage.getItem("wai_loans")) localStorage.setItem("wai_loans", JSON.stringify([]));
+
+        // --- アプリケーションデータの読込 ---
+        function getItems() { return JSON.parse(localStorage.getItem("wai_items")); }
+        function getGroups() { return JSON.parse(localStorage.getItem("wai_groups")); }
+        function getLoans() { return JSON.parse(localStorage.getItem("wai_loans")); }
+
+        // --- 画面の完全更新処理 ---
+        function renderAll() {
+            updateGroupOptions();
+            updateItemOptions();
+            renderUnreturnedLog();
+            renderMasterItemList();
+        }
+
+        // 団体セレクトボックスの更新
+        function updateGroupOptions() {
+            const type = document.getElementById("groupType").value;
+            const groups = getGroups()[type] || [];
+            const select = document.getElementById("groupName");
+            select.innerHTML = groups.map(g => `<option value="${g}">${g}</option>`).join("");
+        }
+
+        // 物品セレクトボックスの更新
+        function updateItemOptions() {
+            const items = getItems();
+            const select = document.getElementById("itemName");
+            select.innerHTML = Object.keys(items).map(i => `<option value="${i}">${i}</option>`).join("");
+        }
+
+        // 物品マスター制限リストの更新表示
+        function renderMasterItemList() {
+            const items = getItems();
+            const list = document.getElementById("masterItemList");
+            list.innerHTML = Object.entries(items).map(([name, limit]) => `
+                <li class="item-row">
+                    <span><strong>${name}</strong></span>
+                    <span>最大上限: ${limit} 個</span>
+                </li>
+            `).join("");
+        }
+
+        // 【最重要】ご要望の「団体ごと：物品名、数」にまとめる未返却ログ表示ロジック
+        function renderUnreturnedLog() {
+            const loans = getLoans();
+            const list = document.getElementById("unreturnedLog");
+            
+            // 団体ごと・物品ごとに数量を集計するためのオブジェクト
+            // 構造例: { "吹奏楽部": { "絵の具": 5, "延長コード": 2 } }
+            const summary = {};
+
+            loans.forEach(loan => {
+                const group = loan.groupName;
+                const item = loan.itemName;
+                const count = parseInt(loan.count);
+
+                if (!summary[group]) summary[group] = {};
+                if (!summary[group][item]) summary[group][item] = 0;
+
+                if (loan.type === "貸出") {
+                    summary[group][item] += count;
+                } else if (loan.type === "返却") {
+                    summary[group][item] -= count;
+                }
+            });
+
+            // ログのHTML生成
+            let html = "";
+            Object.keys(summary).sort().forEach(group => {
+                Object.entries(summary[group]).forEach(([item, count]) => {
+                    // 借りている数が0より大きい場合のみ表示
+                    if (count > 0) {
+                        html += `
+                            <li class="log-item group-log">
+                                <span>🏢 <strong>${group}</strong> は <strong>${item}</strong> を借りています</span>
+                                <span class="badge">${count} 個</span>
+                            </li>
+                        `;
+                    }
+                });
+            });
+
+            list.innerHTML = html || `<li style="color:#64748b; text-align:center; padding:20px;">現在、未返却の物品はありません。</li>`;
+        }
+
+        // --- 貸出・返却のトランザクション処理 ---
+        function processLoan(type) {
+            const groupName = document.getElementById("groupName").value;
+            const itemName = document.getElementById("itemName").value;
+            const count = parseInt(document.getElementById("itemCount").value);
+
+            if (!groupName || !itemName || isNaN(count) || count <= 0) {
+                alert("正しい団体名、物品名、数量を入力してください。");
+                return;
+            }
+
+            // 貸出上限チェック（現在の貸出総数を計算）
+            if (type === "貸出") {
+                const loans = getLoans();
+                let currentBorrowed = 0;
+                loans.forEach(l => {
+                    if (l.groupName === groupName && l.itemName === itemName) {
+                        currentBorrowed += (l.type === "貸出" ? l.count : -l.count);
+                    }
+                });
+
+                const limit = getItems()[itemName] || 0;
+                if (currentBorrowed + count > limit) {
+                    alert(`❌ 貸出エラー: ${groupName}の「${itemName}」の最大貸出制限（上限 ${limit}個）を超えています。\n（現在すでに ${currentBorrowed}個 借りています）`);
+                    return;
+                }
+            }
+
+            // ログの保存
+            const loans = getLoans();
+            loans.push({
+                type: type,
+                groupName: groupName,
+                itemName: itemName,
+                count: count,
+                time: new Date().toLocaleString()
+            });
+
+            localStorage.setItem("wai_loans", JSON.stringify(loans));
+            renderAll();
+            alert(`✅ ${groupName} へ ${itemName} ${count}個の【${type}】を記録しました。`);
+        }
+
+        // --- 管理者機能: 物品制限の追加・更新 ---
+        function addOrUpdateItem() {
+            const name = document.getElementById("newIdName").value.trim();
+            const limit = parseInt(document.getElementById("newIdLimit").value);
+
+            if (!name || isNaN(limit) || limit <= 0) {
+                alert("正しい物品名と制限個数を入力してください。");
+                return;
+            }
+
+            const items = getItems();
+            items[name] = limit;
+            localStorage.setItem("wai_items", JSON.stringify(items));
+            
+            document.getElementById("newIdName").value = "";
+            document.getElementById("newIdLimit").value = "";
+            
+            renderAll();
+            alert(`💾 物品「${name}」の制限上限を ${limit}個 に設定・同期しました。`);
+        }
+
+        // --- 管理者機能: 部活・委員会の新規追加 ---
+        function addNewGroup() {
+            const type = document.getElementById("newGroupType").value;
+            const name = document.getElementById("newGroupName").value.trim();
+
+            if (!name) {
+                alert("団体名を入力してください。");
+                return;
+            }
+
+            const groups = getGroups();
+            if (groups[type].includes(name)) {
+                alert("この団体は既に登録されています。");
+                return;
+            }
+
+            groups[type].push(name);
+            localStorage.setItem("wai_groups", JSON.stringify(groups));
+            
+            document.getElementById("newGroupName").value = "";
+            
+            renderAll();
+            alert(`➕ ${type}に「${name}」を追加し、他端末へ同期しました。`);
+        }
+
+        // 【コア機能】他のタブ・端末・ブラウザ間でのデータ変更を検知して自動リアルタイム同期するイベントリスナー
+        window.addEventListener('storage', (event) => {
+            if (event.key === "wai_items" || event.key === "wai_groups" || event.key === "wai_loans") {
+                renderAll();
+            }
+        });
+
+        // ページ読み込み時に初期描画
+        window.onload = renderAll;
+    </script>
+</body>
+</html>
